@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>India Realtime AQI Map</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>India Realtime AQI Dashboard</h1>
+        <p>Data source: data.gov.in AQI feed</p>
+      </div>
+      <div class="controls">
+        <label for="stateFilter">State</label>
+        <select id="stateFilter">
+          <option value="ALL">All States</option>
+        </select>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="map-wrap">
+        <div id="map"></div>
+        <div id="legend" class="legend"></div>
+      </section>
+      <aside class="sidebar">
+        <h2>Live Snapshot</h2>
+        <div class="metrics">
+          <div class="metric-card">
+            <span>Total Stations</span>
+            <strong id="totalStations">0</strong>
+          </div>
+          <div class="metric-card">
+            <span>Average AQI</span>
+            <strong id="averageAqi">0</strong>
+          </div>
+          <div class="metric-card">
+            <span>Worst AQI</span>
+            <strong id="maxAqi">0</strong>
+          </div>
+        </div>
+
+        <h3>State Rankings</h3>
+        <div id="stateStats" class="state-stats"></div>
+      </aside>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="app.js"></script>
+  </body>
+</html>
