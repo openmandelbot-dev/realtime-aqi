@@ -14,6 +14,17 @@ const RESOURCE_ID = process.env.RESOURCE_ID || '3b01bcb8-0b14-4abf-b6f2-c1bfd384
 const API_KEY = process.env.DATA_GOV_API_KEY;
 const API_BASE = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 
+const AQI_INDEX_BREAKPOINTS = [0, 50, 100, 200, 300, 400, 500];
+const POLLUTANT_BREAKPOINTS = {
+  'PM2.5': [0, 30, 60, 90, 120, 250, 350],
+  PM10: [0, 50, 100, 250, 350, 430, 600],
+  NO2: [0, 40, 80, 180, 280, 400, 600],
+  SO2: [0, 40, 80, 380, 800, 1600, 2000],
+  CO: [0, 1, 2, 10, 17, 34, 50],
+  OZONE: [0, 50, 100, 168, 208, 748, 1000],
+  NH3: [0, 200, 400, 800, 1200, 1800, 2200]
+};
+
 function pickValue(record, keys) {
   for (const key of keys) {
     if (record[key] !== undefined && record[key] !== null && String(record[key]).trim() !== '') {
@@ -34,7 +45,7 @@ function normalizeRecord(record) {
   const aqi = toNumber(pickValue(record, ['aqi', 'AQI', 'air_quality_index', 'max_aqi', 'avg_aqi']));
   const pollutantAvg = toNumber(pickValue(record, ['avg_value', 'pollutant_avg', 'avg']));
   const pollutantMax = toNumber(pickValue(record, ['max_value', 'pollutant_max', 'max']));
-  const pollutantId = pickValue(record, ['pollutant_id', 'pollutant', 'parameter']) || 'N/A';
+  const pollutantId = String(pickValue(record, ['pollutant_id', 'pollutant', 'parameter']) || 'N/A').trim().toUpperCase();
   const city = pickValue(record, ['city', 'city_name', 'name_of_city', 'city/town']) || 'Unknown';
   const state = pickValue(record, ['state', 'state_name', 'province', 'region']) || 'Unknown';
   const station = pickValue(record, ['station', 'station_name', 'location', 'site']) || 'Unknown Station';
@@ -58,14 +69,39 @@ function normalizeRecord(record) {
   };
 }
 
+function computeSubIndex(pollutantId, concentration) {
+  if (concentration === null) {
+    return null;
+  }
+
+  const bands = POLLUTANT_BREAKPOINTS[pollutantId];
+  if (!bands) {
+    return null;
+  }
+
+  for (let i = 0; i < AQI_INDEX_BREAKPOINTS.length - 1; i += 1) {
+    const bpLow = bands[i];
+    const bpHigh = bands[i + 1];
+    if (concentration <= bpHigh) {
+      const iLow = AQI_INDEX_BREAKPOINTS[i];
+      const iHigh = AQI_INDEX_BREAKPOINTS[i + 1];
+      const subIndex = ((iHigh - iLow) / (bpHigh - bpLow)) * (concentration - bpLow) + iLow;
+      return Math.max(0, Math.min(500, Math.round(subIndex)));
+    }
+  }
+
+  return 500;
+}
+
 function aggregateStationRecords(records) {
   const byStation = new Map();
 
   for (const record of records) {
     const key = `${record.station}|${record.latitude}|${record.longitude}`;
-    const hasUsableDirectAqi =
-      record.aqi !== null && (record.aqi > 0 || (record.pollutantAvg === null && record.pollutantMax === null));
-    const candidateValue = hasUsableDirectAqi ? record.aqi : record.pollutantAvg ?? record.pollutantMax;
+    const concentration = record.pollutantAvg ?? record.pollutantMax;
+    const derivedSubIndex = computeSubIndex(record.pollutantId, concentration);
+    const hasUsableDirectAqi = record.aqi !== null && record.aqi > 0;
+    const candidateValue = hasUsableDirectAqi ? record.aqi : derivedSubIndex;
     if (candidateValue === null) {
       continue;
     }
@@ -137,7 +173,7 @@ app.get('/api/aqi', async (req, res) => {
       total: aggregated.length,
       sourceTotal: payload.total,
       resourceId: RESOURCE_ID,
-      metricSource: 'Derived from pollutant avg/max values per station',
+      metricSource: 'Computed station AQI from pollutant concentrations (CPCB breakpoint method)',
       records: aggregated
     });
   } catch (error) {
