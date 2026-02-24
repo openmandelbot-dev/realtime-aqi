@@ -38,6 +38,8 @@ try {
   }).addTo(map);
 
   const stateFilter = document.getElementById('stateFilter');
+  const cityFilter = document.getElementById('cityFilter');
+  const viewMode = document.getElementById('viewMode');
   const refreshBtn = document.getElementById('refreshBtn');
   const totalStationsEl = document.getElementById('totalStations');
   const averageAqiEl = document.getElementById('averageAqi');
@@ -76,6 +78,27 @@ try {
       option.textContent = state;
       stateFilter.appendChild(option);
     });
+  }
+
+  function populateCityFilter(records, selectedState, preserveValue = true) {
+    const previous = preserveValue ? cityFilter.value : 'ALL';
+    const citySource =
+      selectedState === 'ALL' ? records : records.filter((record) => record.state === selectedState);
+    const cities = [...new Set(citySource.map((item) => item.city))].sort((a, b) => a.localeCompare(b));
+
+    cityFilter.innerHTML = '<option value="ALL">All Cities</option>';
+    cities.forEach((city) => {
+      const option = document.createElement('option');
+      option.value = city;
+      option.textContent = city;
+      cityFilter.appendChild(option);
+    });
+
+    if (preserveValue && cities.includes(previous)) {
+      cityFilter.value = previous;
+    } else {
+      cityFilter.value = 'ALL';
+    }
   }
 
   function renderStateStats(records) {
@@ -137,6 +160,7 @@ try {
         <strong>${record.city}, ${record.state}</strong><br>
         Station: ${record.station}<br>
         AQI: <strong>${record.aqi}</strong> (${category.label})<br>
+        Primary Pollutant: ${record.primaryPollutant || 'N/A'}<br>
         Last Updated: ${record.updatedAt}
       `);
 
@@ -145,11 +169,33 @@ try {
   }
 
   function applyFilter() {
-    const state = stateFilter.value;
-    const filtered = state === 'ALL' ? allRecords : allRecords.filter((item) => item.state === state);
+    const selectedState = stateFilter.value;
+    const selectedCity = cityFilter.value;
+    const selectedView = viewMode.value;
+
+    let filtered = allRecords;
+    if (selectedState !== 'ALL') {
+      filtered = filtered.filter((item) => item.state === selectedState);
+    }
+    if (selectedCity !== 'ALL') {
+      filtered = filtered.filter((item) => item.city === selectedCity);
+    }
+
+    const sorted = [...filtered].sort((a, b) => a.aqi - b.aqi);
+    if (selectedView === 'BEST10') {
+      filtered = sorted.slice(0, 10);
+    } else if (selectedView === 'WORST10') {
+      filtered = sorted.slice(-10).reverse();
+    }
+
     renderMap(filtered);
     updateMetrics(filtered);
     renderStateStats(filtered);
+  }
+
+  function onStateChange() {
+    populateCityFilter(allRecords, stateFilter.value, false);
+    applyFilter();
   }
 
   async function loadData() {
@@ -158,7 +204,7 @@ try {
     setStatus('Loading AQI data...');
 
     try {
-      const response = await fetch('/api/aqi?limit=800');
+      const response = await fetch('/api/aqi?limit=1200');
       const payload = await response.json();
 
       if (!response.ok) {
@@ -174,6 +220,7 @@ try {
       }
 
       populateStateFilter(allRecords);
+      populateCityFilter(allRecords, 'ALL', false);
       applyFilter();
       setStatus(`Loaded ${allRecords.length} stations.`, false);
       setTimeout(() => setStatus(''), 1500);
@@ -187,7 +234,9 @@ try {
     }
   }
 
-  stateFilter.addEventListener('change', applyFilter);
+  stateFilter.addEventListener('change', onStateChange);
+  cityFilter.addEventListener('change', applyFilter);
+  viewMode.addEventListener('change', applyFilter);
   refreshBtn.addEventListener('click', loadData);
 
   renderLegend();

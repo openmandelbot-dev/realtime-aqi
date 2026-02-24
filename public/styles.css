@@ -226,3 +226,18 @@ body {
   background: #fef2f2;
   color: #991b1b;
 }
+
+.control-item {
+  min-width: 150px;
+}
+
+.control-item label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.control-item select {
+  width: 100%;
+}

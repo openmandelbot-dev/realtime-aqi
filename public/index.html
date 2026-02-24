@@ -14,10 +14,26 @@
         <p>Data source: data.gov.in AQI feed</p>
       </div>
       <div class="controls">
-        <label for="stateFilter">State</label>
-        <select id="stateFilter">
-          <option value="ALL">All States</option>
-        </select>
+        <div class="control-item">
+          <label for="stateFilter">State</label>
+          <select id="stateFilter">
+            <option value="ALL">All States</option>
+          </select>
+        </div>
+        <div class="control-item">
+          <label for="cityFilter">City</label>
+          <select id="cityFilter">
+            <option value="ALL">All Cities</option>
+          </select>
+        </div>
+        <div class="control-item">
+          <label for="viewMode">View</label>
+          <select id="viewMode">
+            <option value="ALL">All Stations</option>
+            <option value="WORST10">Worst 10</option>
+            <option value="BEST10">Best 10</option>
+          </select>
+        </div>
         <button id="refreshBtn">Refresh</button>
       </div>
     </header>
