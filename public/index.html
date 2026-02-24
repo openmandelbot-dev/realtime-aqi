@@ -22,6 +22,8 @@
       </div>
     </header>
 
+    <div id="appStatus" class="app-status">Loading AQI data...</div>
+
     <main class="layout">
       <section class="map-wrap">
         <div id="map"></div>
@@ -48,6 +50,10 @@
         <div id="stateStats" class="state-stats"></div>
       </aside>
     </main>
+
+    <noscript>
+      <div class="app-status app-status-error">JavaScript is required to load the map and AQI data.</div>
+    </noscript>
 
     <script src="vendor/leaflet/leaflet.js"></script>
     <script src="app.js"></script>

@@ -9,6 +9,7 @@ app.use(cors());
 app.use(express.static('public'));
 
 const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '0.0.0.0';
 const RESOURCE_ID = process.env.RESOURCE_ID || '3b01bcb8-0b14-4abf-b6f2-c1bfd384ba69';
 const API_KEY = process.env.DATA_GOV_API_KEY;
 const API_BASE = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
@@ -103,6 +104,18 @@ app.get('/api/aqi', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`AQI dashboard running at http://localhost:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`AQI dashboard running at http://${HOST}:${PORT}`);
+});
+
+server.on('error', (error) => {
+  console.error('Server startup error:', error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
 });
