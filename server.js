@@ -32,12 +32,15 @@ function normalizeRecord(record) {
   const latitude = toNumber(pickValue(record, ['latitude', 'Latitude', 'lat', 'station_latitude']));
   const longitude = toNumber(pickValue(record, ['longitude', 'Longitude', 'lon', 'lng', 'station_longitude']));
   const aqi = toNumber(pickValue(record, ['aqi', 'AQI', 'air_quality_index', 'max_aqi', 'avg_aqi']));
+  const pollutantAvg = toNumber(pickValue(record, ['avg_value', 'pollutant_avg', 'avg']));
+  const pollutantMax = toNumber(pickValue(record, ['max_value', 'pollutant_max', 'max']));
+  const pollutantId = pickValue(record, ['pollutant_id', 'pollutant', 'parameter']) || 'N/A';
   const city = pickValue(record, ['city', 'city_name', 'name_of_city', 'city/town']) || 'Unknown';
   const state = pickValue(record, ['state', 'state_name', 'province', 'region']) || 'Unknown';
   const station = pickValue(record, ['station', 'station_name', 'location', 'site']) || 'Unknown Station';
   const updatedAt = pickValue(record, ['last_update', 'last_updated', 'date', 'timestamp', 'from_date', 'to_date']) || 'N/A';
 
-  if (latitude === null || longitude === null || aqi === null) {
+  if (latitude === null || longitude === null || (aqi === null && pollutantAvg === null && pollutantMax === null)) {
     return null;
   }
 
@@ -45,11 +48,50 @@ function normalizeRecord(record) {
     latitude,
     longitude,
     aqi,
+    pollutantAvg,
+    pollutantMax,
+    pollutantId: String(pollutantId),
     city: String(city),
     state: String(state),
     station: String(station),
     updatedAt: String(updatedAt)
   };
+}
+
+function aggregateStationRecords(records) {
+  const byStation = new Map();
+
+  for (const record of records) {
+    const key = `${record.station}|${record.latitude}|${record.longitude}`;
+    const hasUsableDirectAqi =
+      record.aqi !== null && (record.aqi > 0 || (record.pollutantAvg === null && record.pollutantMax === null));
+    const candidateValue = hasUsableDirectAqi ? record.aqi : record.pollutantAvg ?? record.pollutantMax;
+    if (candidateValue === null) {
+      continue;
+    }
+
+    const existing = byStation.get(key);
+    if (!existing) {
+      byStation.set(key, {
+        latitude: record.latitude,
+        longitude: record.longitude,
+        aqi: candidateValue,
+        city: record.city,
+        state: record.state,
+        station: record.station,
+        updatedAt: record.updatedAt,
+        primaryPollutant: record.pollutantId
+      });
+      continue;
+    }
+
+    if (candidateValue > existing.aqi) {
+      existing.aqi = candidateValue;
+      existing.primaryPollutant = record.pollutantId;
+    }
+  }
+
+  return [...byStation.values()];
 }
 
 app.get('/health', (_req, res) => {
@@ -89,12 +131,14 @@ app.get('/api/aqi', async (req, res) => {
     const payload = await response.json();
     const records = Array.isArray(payload.records) ? payload.records : [];
     const normalized = records.map(normalizeRecord).filter(Boolean);
+    const aggregated = aggregateStationRecords(normalized);
 
     res.json({
-      total: normalized.length,
+      total: aggregated.length,
       sourceTotal: payload.total,
       resourceId: RESOURCE_ID,
-      records: normalized
+      metricSource: 'Derived from pollutant avg/max values per station',
+      records: aggregated
     });
   } catch (error) {
     res.status(500).json({
